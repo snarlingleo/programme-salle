@@ -1619,51 +1619,6 @@ if (localStorage.getItem("notifEnabled") === "yes") {
   scheduleTrainingNotif();
 }
 </script>
-<script>
-// ===============================
-// NOTIFICATIONS TRAINING 4M
-// ===============================
-function askNotifPermission() {
-  if (!("Notification" in window)) return;
-
-  if (Notification.permission === "default") {
-    Notification.requestPermission().then(permission => {
-      if (permission === "granted") {
-        scheduleTrainingNotif();
-        alert("✅ Notifications activées !");
-      }
-    });
-  }
-}
-
-function scheduleTrainingNotif() {
-  if (Notification.permission !== "granted") return;
-
-  // Heure du rappel (modifiable)
-  const hour = 4;
-  const minute = 20;
-
-  // Jours d'entraînement (Mar → Ven)
-  const trainingDays = [2, 3, 4, 5];
-
-  setInterval(() => {
-    const now = new Date();
-    if (
-      trainingDays.includes(now.getDay()) &&
-      now.getHours() === hour &&
-      now.getMinutes() === minute
-    ) {
-      new Notification("🔥 Training 4M", {
-        body: "C’est l’heure de ta séance. Discipline > motivation 💪",
-        icon: "icon-192.png"
-      });
-    }
-  }, 60000); // vérifie chaque minute
-}
-
-// Lance automatiquement
-document.addEventListener("DOMContentLoaded", askNotifPermission);
-</script>
 <button onclick="enableNotifications()">
 🔔 Activer les notifications
 </button>
