@@ -313,6 +313,34 @@ tr.trow td{background:rgba(75,75,249,0.18);}
 .ara{background:rgba(255,141,150,0.2);color:var(--c);border:1px solid var(--c);}
 .abtn:hover{transform:translateY(-2px);opacity:0.9;}
 
+/* DASHBOARD */
+.dash-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:12px;}
+.dash-card{background:rgba(75,75,249,0.08);border:1px solid rgba(75,75,249,0.22);border-radius:14px;padding:13px;text-align:center;transition:transform 0.2s;}
+.dash-card:hover{transform:translateY(-2px);}
+.dash-val{font-size:1.6rem;font-weight:700;color:var(--l);display:block;line-height:1.2;}
+.dash-lbl{font-size:0.62rem;color:rgba(255,255,255,0.4);margin-top:4px;display:block;}
+.dash-sub{font-size:0.68rem;color:rgba(255,255,255,0.25);margin-top:2px;display:block;}
+.dash-full{grid-column:1/-1;}
+.top-exo{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(75,75,249,0.1);}
+.top-rank{background:var(--i);color:var(--w);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;flex-shrink:0;}
+.top-rank.gold{background:var(--l);color:var(--m);}
+.top-rank.silver{background:rgba(255,255,255,0.3);color:var(--m);}
+.top-rank.bronze{background:var(--c);color:var(--m);}
+.top-info{flex:1;}
+.top-name{font-size:0.78rem;font-weight:600;}
+.top-prog{font-size:0.65rem;color:var(--mn);margin-top:2px;}
+.consist-bar{display:flex;gap:3px;margin-top:8px;flex-wrap:wrap;}
+.cb-week{width:14px;height:14px;border-radius:3px;flex-shrink:0;}
+.level-wrap{background:rgba(75,75,249,0.08);border:1px solid rgba(75,75,249,0.22);border-radius:16px;padding:16px;margin-bottom:12px;text-align:center;}
+.level-badge{font-size:2.5rem;display:block;margin-bottom:6px;}
+.level-name{font-size:1.1rem;font-weight:700;color:var(--l);margin-bottom:4px;}
+.level-desc{font-size:0.72rem;color:rgba(255,255,255,0.45);margin-bottom:12px;}
+.level-prog{background:rgba(255,255,255,0.07);border-radius:20px;height:8px;overflow:hidden;margin-bottom:6px;}
+.level-bar{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--i),var(--lv));transition:width 0.8s ease;}
+.level-next{font-size:0.65rem;color:rgba(255,255,255,0.3);}
+.xp-pop{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:var(--i);color:var(--w);padding:16px 28px;border-radius:20px;font-size:1.1rem;font-weight:700;z-index:9999;transition:all 0.3s;pointer-events:none;text-align:center;}
+.xp-pop.show{transform:translate(-50%,-50%) scale(1);}
+
 /* LIGHT */
 body.light{background:var(--lg);color:var(--m);}
 body.light .card,.light .pc,.light .ac,.light .nc,.light .cb,.light .tbox,.light .trophy,.light .stbox,.light .motiv,.light .je,.light .defi,.light .hbox,.light .coach-box,.light .rcard,.light .rtbox,.light .rec{background:#fff;border-color:#ddd;}
@@ -354,6 +382,7 @@ body.light .winfo{background:#fff;}
 <div class="tw">
   <div class="tabs">
     <button class="tb active" onclick="showTab('planning',this)">📅 Planning</button>
+    <button class="tb" onclick="showTab('dashboard',this)">🏅 Dashboard</button>
     <button class="tb" onclick="showTab('seance',this)">🏋️ Séance</button>
     <button class="tb" onclick="showTab('timer',this)">⏱️ Timer</button>
     <button class="tb" onclick="showTab('reps',this)">🔢 Reps</button>
@@ -427,6 +456,38 @@ body.light .winfo{background:#fff;}
     </div>
   </div>
 </div>
+
+<!-- ===== DASHBOARD ===== -->
+<div id="dashboard" class="tc">
+
+  <!-- Niveau -->
+  <div class="level-wrap" id="levelWrap"></div>
+
+  <!-- Stats grid -->
+  <div class="dash-grid" id="dashGrid"></div>
+
+  <!-- Top exercices -->
+  <div class="card">
+    <h2>🏆 Top 3 — Exercices les plus progressés</h2>
+    <div id="topExos"></div>
+  </div>
+
+  <!-- Consistency map -->
+  <div class="card">
+    <h2>📅 Consistency Map — 16 semaines</h2>
+    <p style="font-size:0.68rem;color:rgba(255,255,255,0.35);margin-bottom:9px;">
+      <span style="color:var(--mn)">■</span> Parfaite &nbsp;
+      <span style="color:var(--l)">■</span> Partielle &nbsp;
+      <span style="color:var(--c)">■</span> Sautée &nbsp;
+      <span style="color:rgba(255,255,255,0.1)">■</span> À venir
+    </p>
+    <div class="consist-bar" id="consistBar"></div>
+  </div>
+
+</div>
+
+<!-- XP POP -->
+<div class="xp-pop" id="xpPop"></div>
 
 <!-- ===== SÉANCE ===== -->
 <div id="seance" class="tc">
@@ -1147,6 +1208,208 @@ function updateForme(){
   if(bar){bar.style.width=pct+'%';bar.style.background=pct>70?'var(--mn)':pct>40?'var(--l)':'var(--c)';}
   const el=document.getElementById('formeVal');
   if(el)el.textContent=pct+'%';
+}
+
+// ============================================================
+// DASHBOARD & NIVEAUX
+// ============================================================
+const LEVELS = [
+  {name:'Débutant',icon:'🌱',min:0,  max:100, desc:'Le voyage commence ici'},
+  {name:'Régulier', icon:'💪',min:100,max:250, desc:'La routine s\'installe'},
+  {name:'Warrior',  icon:'⚔️',min:250,max:500, desc:'La discipline forge le corps'},
+  {name:'Champion', icon:'🏆',min:500,max:800, desc:'Tu dépasses tes limites'},
+  {name:'Élite',    icon:'🔥',min:800,max:1200,desc:'Le top 1% des pratiquants'},
+  {name:'Légende',  icon:'👑',min:1200,max:9999,desc:'Indépassable. Respect.'},
+];
+
+function calcXP() {
+  let xp = 0;
+  for (let w = 1; w <= WEEKS; w++) {
+    SESS.forEach(s => {
+      const st = ld(`st_w${w}_${s.key}`, 'todo');
+      if (st === 'done') {
+        xp += 20; // séance faite
+        // Bonus semaine parfaite
+        const allDone = SESS.every(ss => ld(`st_w${w}_${ss.key}`) === 'done');
+        if (allDone) xp += 10;
+        // Bonus charges enregistrées
+        s.exos.forEach((_, ei) => {
+          if (ld(`ch_w${w}_${s.key}_${ei}`, '')) xp += 2;
+        });
+      }
+    });
+    // Bonus streak
+    const streak = calcStreak(w);
+    if (streak >= 4) xp += 15;
+  }
+  return xp;
+}
+
+function calcStreak(upToWeek) {
+  let streak = 0;
+  for (let w = upToWeek; w >= 1; w--) {
+    const ok = SESS.every(s => ld(`st_w${w}_${s.key}`) === 'done');
+    if (ok) streak++;
+    else break;
+  }
+  return streak;
+}
+
+function getLevel(xp) {
+  for (let i = LEVELS.length - 1; i >= 0; i--) {
+    if (xp >= LEVELS[i].min) return { ...LEVELS[i], index: i };
+  }
+  return { ...LEVELS[0], index: 0 };
+}
+
+function buildDashboard() {
+  const xp = calcXP();
+  const level = getLevel(xp);
+  const prevXP = ld('lastXP', 0);
+
+  // Détecte gain XP → animation
+  if (xp > prevXP && prevXP > 0) {
+    showXPPop(`+${xp - prevXP} XP 🔥`);
+  }
+  sv('lastXP', xp);
+
+  // Niveau
+  const nextLevel = LEVELS[Math.min(level.index + 1, LEVELS.length - 1)];
+  const progPct = Math.min(100, Math.round(
+    ((xp - level.min) / (nextLevel.min - level.min)) * 100
+  ));
+  document.getElementById('levelWrap').innerHTML = `
+    <span class="level-badge">${level.icon}</span>
+    <div class="level-name">${level.name}</div>
+    <div class="level-desc">${level.desc}</div>
+    <div style="font-size:0.78rem;color:var(--lv);margin-bottom:8px;">${xp} XP</div>
+    <div class="level-prog"><div class="level-bar" style="width:${progPct}%"></div></div>
+    <div class="level-next">
+      ${level.index < LEVELS.length - 1
+        ? `Prochain niveau : ${nextLevel.icon} ${nextLevel.name} → ${nextLevel.min - xp} XP restants`
+        : '👑 Niveau maximum atteint !'}
+    </div>`;
+
+  // Stats
+  let totalFait = 0, bestWeek = 0, bestWeekNum = 0;
+  let totalVol = 0, currentStreak = calcStreak(CW);
+  let bestStreak = 0, tempStreak = 0;
+
+  for (let w = 1; w <= WEEKS; w++) {
+    let wDone = 0;
+    SESS.forEach(s => {
+      if (ld(`st_w${w}_${s.key}`) === 'done') {
+        wDone++;
+        totalFait++;
+        s.exos.forEach((ex, ei) => {
+          const kg = parseFloat(ld(`ch_w${w}_${s.key}_${ei}`, '') || 0);
+          const reps = parseInt(ex.v[getPhase(w).k].split('×')[1]) || 10;
+          const sets = parseInt(ex.v[getPhase(w).k].split('×')[0]) || 3;
+          totalVol += kg * reps * sets;
+        });
+      }
+    });
+    if (wDone === SESS.length) {
+      tempStreak++;
+      if (tempStreak > bestStreak) bestStreak = tempStreak;
+    } else {
+      tempStreak = 0;
+    }
+    if (wDone > bestWeek) { bestWeek = wDone; bestWeekNum = w; }
+  }
+
+  const poidsDebut = parseFloat(ld('mn_w1_poids', BW) || BW);
+  const poidsMaintenant = parseFloat(ld(`mn_w${CW}_poids`, BW) || BW);
+  const deltaP = (poidsMaintenant - poidsDebut).toFixed(1);
+  const consistency = Math.round((totalFait / (CW * SESS.length)) * 100);
+
+  document.getElementById('dashGrid').innerHTML = `
+    <div class="dash-card">
+      <span class="dash-val">${consistency}%</span>
+      <span class="dash-lbl">Consistency Score</span>
+      <span class="dash-sub">${totalFait} séances / ${CW * SESS.length} prévues</span>
+    </div>
+    <div class="dash-card">
+      <span class="dash-val">${Math.round(totalVol / 1000)}T</span>
+      <span class="dash-lbl">Volume total soulevé</span>
+      <span class="dash-sub">${Math.round(totalVol).toLocaleString()} kg</span>
+    </div>
+    <div class="dash-card">
+      <span class="dash-val">${currentStreak}🔥</span>
+      <span class="dash-lbl">Streak actuel</span>
+      <span class="dash-sub">Record : ${bestStreak} semaines</span>
+    </div>
+    <div class="dash-card">
+      <span class="dash-val">${deltaP > 0 ? '+' : ''}${deltaP}kg</span>
+      <span class="dash-lbl">Évolution poids</span>
+      <span class="dash-sub">${poidsDebut}kg → ${poidsMaintenant}kg</span>
+    </div>
+    <div class="dash-card dash-full">
+      <span class="dash-val" style="font-size:1.2rem;">S${bestWeekNum} · ${bestWeek}/${SESS.length} séances</span>
+      <span class="dash-lbl">🏆 Meilleure semaine</span>
+    </div>`;
+
+  // Top 3 exercices progressés
+  let progList = [];
+  SESS.forEach(s => s.exos.forEach((ex, ei) => {
+    const first = parseFloat(ld(`ch_w1_${s.key}_${ei}`, '') || 0);
+    const last = parseFloat(ld(`ch_w${CW}_${s.key}_${ei}`, '') || 0);
+    if (first > 0 && last > 0) {
+      progList.push({
+        name: ex.n,
+        prog: last - first,
+        first, last
+      });
+    }
+  }));
+  progList.sort((a, b) => b.prog - a.prog);
+  const top3 = progList.slice(0, 3);
+  const ranks = [
+    {cls:'gold',   icon:'🥇'},
+    {cls:'silver', icon:'🥈'},
+    {cls:'bronze', icon:'🥉'},
+  ];
+  document.getElementById('topExos').innerHTML = top3.length
+    ? top3.map((e, i) => `
+        <div class="top-exo">
+          <div class="top-rank ${ranks[i].cls}">${ranks[i].icon}</div>
+          <div class="top-info">
+            <div class="top-name">${e.name}</div>
+            <div class="top-prog">
+              ${e.first}kg → ${e.last}kg
+              <strong style="color:var(--mn);">+${e.prog}kg</strong>
+            </div>
+          </div>
+        </div>`).join('')
+    : '<p style="font-size:0.78rem;color:rgba(255,255,255,0.35);padding:10px 0;">Entre tes charges pour voir ton top 3 📝</p>';
+
+  // Consistency map
+  const bar = document.getElementById('consistBar');
+  bar.innerHTML = [...Array(WEEKS)].map((_, i) => {
+    const w = i + 1;
+    let done = 0, skip = 0;
+    SESS.forEach(s => {
+      const st = ld(`st_w${w}_${s.key}`, 'todo');
+      if (st === 'done') done++;
+      if (st === 'skip') skip++;
+    });
+    const isFuture = w > CW;
+    const color = isFuture
+      ? 'rgba(255,255,255,0.08)'
+      : done === SESS.length ? 'var(--mn)'
+      : done > 0 ? 'var(--l)'
+      : skip > 0 ? 'var(--c)'
+      : 'rgba(255,255,255,0.15)';
+    const label = `S${w}${isFuture ? '' : ` · ${done}/${SESS.length}`}`;
+    return `<div class="cb-week" style="background:${color};" title="${label}"></div>`;
+  }).join('');
+}
+
+function showXPPop(msg) {
+  const pop = document.getElementById('xpPop');
+  pop.textContent = msg;
+  pop.classList.add('show');
+  setTimeout(() => pop.classList.remove('show'), 2000);
 }
 
 // ============================================================
@@ -1914,7 +2177,15 @@ function showTab(id,btn){
   document.querySelectorAll('.tb').forEach(b=>b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if(btn)btn.classList.add('active');
-  const map={graphique:()=>setTimeout(renderCharts,100),calendrier:buildCalendar,export:updateDataSummary,suivi:renderMensChart,trophees:updateTrophies,rapport:()=>buildRapport(1)};
+  const map={
+  dashboard:buildDashboard,
+  graphique:()=>setTimeout(renderCharts,100),
+  calendrier:buildCalendar,
+  export:updateDataSummary,
+  suivi:renderMensChart,
+  trophees:updateTrophies,
+  rapport:()=>buildRapport(1)
+};
   if(map[id])map[id]();
 }
 
