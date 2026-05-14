@@ -559,6 +559,25 @@ body.light .winfo{background:#fff;}
     </div>
     <button class="abtn ae" onclick="calcCal()" style="width:100%;justify-content:center;">Calculer</button>
     <div id="calRes" style="display:none;margin-top:11px;"></div>
+    <!-- NOTIFICATIONS -->
+<div class="card">
+  <h2>🔔 Notifications de rappel</h2>
+  <p style="font-size:0.76rem;color:rgba(255,255,255,0.45);margin-bottom:12px;">
+    Reçois un rappel automatique chaque matin de séance à 04:20 🔥
+  </p>
+  <div id="notifStatus" style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-bottom:10px;">
+    Statut : <span id="notifStatusText">Non activées</span>
+  </div>
+  <button 
+    id="notifBtn"
+    style="background:var(--i);color:white;border:none;padding:14px 20px;border-radius:14px;font-size:0.88rem;font-weight:700;width:100%;cursor:pointer;letter-spacing:0.03em;"
+    onclick="enableNotifications()">
+    🔔 Activer les notifications
+  </button>
+  <p style="font-size:0.65rem;color:rgba(255,255,255,0.25);margin-top:8px;">
+    ⚠️ Doit être ouvert depuis l'icône Training 4M
+  </p>
+</div>
   </div>
   <div class="card">
     <h2>🏋️ Calculateur 1RM</h2>
@@ -1571,23 +1590,63 @@ if ("serviceWorker" in navigator) {
 }
 </script>
 
-<!-- ===============================
-     NOTIFICATIONS TRAINING 4M
-=============================== -->
 <script>
-function enableNotifications() {
+// ===============================
+// NOTIFICATIONS TRAINING 4M v2
+// ===============================
+
+function updateNotifUI() {
+  const txt = document.getElementById('notifStatusText');
+  const btn = document.getElementById('notifBtn');
+  if (!txt || !btn) return;
+
   if (!("Notification" in window)) {
-    alert("Notifications non supportées");
+    txt.textContent = "Non supportées sur cet appareil";
+    txt.style.color = "var(--c)";
+    btn.style.display = "none";
     return;
   }
 
+  if (Notification.permission === "granted") {
+    txt.textContent = "✅ Activées";
+    txt.style.color = "var(--mn)";
+    btn.textContent = "✅ Notifications actives";
+    btn.style.background = "var(--mn)";
+    btn.style.color = "var(--m)";
+  } else if (Notification.permission === "denied") {
+    txt.textContent = "❌ Bloquées (Réglages iPhone)";
+    txt.style.color = "var(--c)";
+    btn.textContent = "⚙️ Autoriser dans Réglages";
+    btn.style.background = "rgba(255,141,150,0.2)";
+  }
+}
+
+function enableNotifications() {
+  if (!("Notification" in window)) {
+    alert("Les notifications web ne sont pas supportées.");
+    return;
+  }
+
+  if (Notification.permission === "granted") {
+    alert("✅ Notifications déjà activées !");
+    scheduleTrainingNotif();
+    return;
+  }
+
+  if (Notification.permission === "denied") {
+    alert("❌ Notifications bloquées.\n\nVa dans :\nRéglages → Training 4M → Notifications → Autoriser");
+    return;
+  }
+
+  // Demande l'autorisation
   Notification.requestPermission().then(permission => {
+    updateNotifUI();
     if (permission === "granted") {
       localStorage.setItem("notifEnabled", "yes");
-      alert("✅ Notifications activées !");
       scheduleTrainingNotif();
+      alert("✅ Notifications activées !\nTu recevras un rappel chaque matin de séance à 04:20 🔥");
     } else {
-      alert("❌ Notifications refusées");
+      alert("❌ Autorisation refusée.");
     }
   });
 }
@@ -1597,7 +1656,7 @@ function scheduleTrainingNotif() {
 
   const hour = 4;
   const minute = 20;
-  const trainingDays = [2, 3, 4, 5];
+  const trainingDays = [2, 3, 4, 5]; // Mar → Ven
 
   setInterval(() => {
     const now = new Date();
@@ -1607,17 +1666,21 @@ function scheduleTrainingNotif() {
       now.getMinutes() === minute
     ) {
       new Notification("🔥 Training 4M", {
-        body: "C’est l’heure de ta séance. Discipline > motivation 💪",
+        body: "C'est l'heure de ta séance. Discipline > motivation 💪",
         icon: "icon-192.png"
       });
     }
   }, 60000);
 }
 
-// Si déjà autorisé, relance au chargement
-if (localStorage.getItem("notifEnabled") === "yes") {
-  scheduleTrainingNotif();
-}
+// Au chargement
+window.addEventListener("load", () => {
+  updateNotifUI();
+  if (localStorage.getItem("notifEnabled") === "yes" &&
+      Notification.permission === "granted") {
+    scheduleTrainingNotif();
+  }
+});
 </script>
 <button onclick="enableNotifications()">
 🔔 Activer les notifications
