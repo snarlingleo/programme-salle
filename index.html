@@ -1322,49 +1322,165 @@ function exportICS(){
 }
 
 // ============================================================
-// COACH VIRTUEL
+// COACH VIRTUEL ADAPTATIF 
 // ============================================================
-function loadCoach(w){
-  const ph=getPhase(w);
-  let done=0,skip=0;
-  SESS.forEach(s=>{
-    const st=ld(`st_w${w}_${s.key}`,'todo');
-    if(st==='done')done++;
-    if(st==='skip')skip++;
-  });
-  const fat=ld(`fat_w${w}`,0);
-  let msg='',tip='',showRat=false,ratContent='';
+function loadCoach(w) {
+  const ph = getPhase(w);
+  const fat = ld(`fat_w${w}`, 0);
+  const hum = ld(`hum_w${w}_${new Date().toDateString()}`, null);
 
-  if(done===0&&skip===0){
-    msg=`👋 Bonjour ! Semaine ${w} commence. Tu as ${SESS.length} séances prévues cette semaine. La première est ${SESS[0].label} le ${formatDate(getSessionDate(w,0))}.`;
-    tip=`💡 Conseil : Prépare ta tenue et ton sac ce soir pour ne pas perdre de temps à 4h30 du matin.`;
-  }else if(skip>0){
-    msg=`⚠️ Tu as ${skip} séance(s) sautée(s) cette semaine. C'est ok, ça arrive — l'important c'est de rebondir.`;
-    tip=`💡 Séance de rattrapage suggérée : fais les exercices principaux en version courte (3 séries au lieu de 4).`;
-    showRat=true;
-    const skippedSes=SESS.filter(s=>ld(`st_w${w}_${s.key}`)==='skip');
-    ratContent=skippedSes.map(s=>`<strong>${s.label}</strong><br>→ Version courte : ${s.exos.slice(0,2).map(ex=>`${ex.n} (${ex.v[ph.k]})`).join(', ')}`).join('<br><br>');
-  }else if(done===SESS.length){
-    msg=`🏆 Semaine ${w} PARFAITE ! Tu as complété toutes tes séances. C'est exactement ce qu'il faut pour progresser.`;
-    tip=`💡 Continue sur cette lancée. La semaine ${w+1} débute le ${w<WEEKS?formatDate(getSessionDate(w+1,0)):'Programme terminé !'}.`;
-  }else{
-    msg=`💪 ${done}/${SESS.length} séances faites cette semaine. ${SESS.length-done-skip} séance(s) restante(s).`;
-    tip=fat>=3?`⚠️ Tu te sens fatigué. Assure-toi de bien dormir et de ne pas négliger ta nutrition.`:`💡 Tu es sur la bonne voie. Maintiens le rythme jusqu'à vendredi !`;
+  // Analyse séances
+  let done = 0, skip = 0, todo = 0;
+  SESS.forEach(s => {
+    const st = ld(`st_w${w}_${s.key}`, 'todo');
+    if (st === 'done') done++;
+    else if (st === 'skip') skip++;
+    else todo++;
+  });
+
+  // Analyse charges (semaine actuelle vs semaine précédente)
+  let chargeUp = 0, chargeDown = 0, chargeCount = 0;
+  if (w > 1) {
+    SESS.forEach(s => s.exos.forEach((_, ei) => {
+      const cur = parseFloat(ld(`ch_w${w}_${s.key}_${ei}`, '') || 0);
+      const prev = parseFloat(ld(`ch_w${w - 1}_${s.key}_${ei}`, '') || 0);
+      if (cur > 0 && prev > 0) {
+        chargeCount++;
+        if (cur > prev) chargeUp++;
+        else if (cur < prev) chargeDown++;
+      }
+    }));
   }
 
+  // Analyse streak global
+  let streak = 0;
+  for (let i = w; i >= 1; i--) {
+    const ok = SESS.every(s => ld(`st_w${i}_${s.key}`) === 'done');
+    if (ok) streak++;
+    else break;
+  }
+
+  // Analyse fatigue sur 3 semaines
+  let fatAvg = 0, fatCount = 0;
+  for (let i = Math.max(1, w - 2); i <= w; i++) {
+    const f = ld(`fat_w${i}`, 0);
+    if (f > 0) { fatAvg += f; fatCount++; }
+  }
+  fatAvg = fatCount ? fatAvg / fatCount : 0;
+
+  // ============================================================
+  // GÉNÈRE LE MESSAGE COACH
+  // ============================================================
+  let msg = '', tip = '', urgence = '';
+  let showRat = false, ratContent = '';
+
+  // CAS 1 — Épuisement détecté
+  if (fat === 4 || fatAvg >= 3.5) {
+    urgence = '🚨';
+    msg = `Attention : ton niveau de fatigue est très élevé cette semaine. Le corps envoie un signal clair — il a besoin de récupérer.`;
+    tip = `💡 Réduis le volume de 30% cette semaine. Priorité : sommeil + nutrition. Une semaine de décharge maintenant = 2 semaines de progression ensuite.`;
+  }
+
+  // CAS 2 — Surperformance (streak + charges en hausse)
+  else if (streak >= 2 && chargeUp >= 2 && fat <= 2) {
+    urgence = '🚀';
+    msg = `Semaine ${w} en feu ! ${streak} semaine(s) parfaite(s) consécutive(s) et les charges progressent. Tu es exactement dans la bonne zone.`;
+    tip = `💡 Tu peux tenter +2.5kg sur tes exercices principaux cette semaine. Le corps est prêt.`;
+  }
+
+  // CAS 3 — Séances sautées
+  else if (skip >= 2) {
+    urgence = '⚠️';
+    msg = `${skip} séance(s) sautée(s) cette semaine. Ce n'est pas un échec — c'est une information. Qu'est-ce qui a bloqué ?`;
+    tip = `💡 Plan de rattrapage activé. Fais une séance express de 30 min en combinant les exercices principaux des séances manquées.`;
+    showRat = true;
+    const skippedSes = SESS.filter(s => ld(`st_w${w}_${s.key}`) === 'skip');
+    ratContent = skippedSes.map(s => {
+      const exosPrincipaux = s.exos.slice(0, 2).map(ex =>
+        `→ ${ex.n} · ${ex.v[ph.k]} · ${getSugg(ex.b, w)}`
+      ).join('<br>');
+      return `<strong style="color:var(--c);">${s.label}</strong><br>${exosPrincipaux}`;
+    }).join('<br><br>');
+  }
+
+  // CAS 4 — Début de semaine (rien encore fait)
+  else if (done === 0 && skip === 0) {
+    urgence = '💪';
+    const prochaine = SESS[0];
+    const dateProchaine = formatDate(getSessionDate(w, 0));
+    msg = `Semaine ${w} — ${ph.n}. ${todo} séance(s) t'attendent. La prochaine : ${prochaine.label} le ${dateProchaine}.`;
+    tip = fat >= 3
+      ? `💡 Tu te sens fatigué. Commence par 10 min d'échauffement léger — souvent ça suffit à lancer la machine.`
+      : `💡 Prépare ton sac ce soir. La discipline, c'est décider avant d'avoir envie.`;
+  }
+
+  // CAS 5 — Semaine en cours, progression normale
+  else if (done > 0 && done < SESS.length) {
+    urgence = '📈';
+    const restantes = SESS.length - done - skip;
+    msg = `${done}/${SESS.length} séances faites. ${restantes} restante(s) cette semaine.`;
+    if (chargeDown > 0) {
+      tip = `💡 Les charges ont baissé sur ${chargeDown} exercice(s). Vérifie ta nutrition et ton sommeil — c'est là que ça se passe.`;
+    } else if (chargeUp > 0) {
+      tip = `💡 ${chargeUp} charge(s) en hausse — excellent. Maintiens cette progression.`;
+    } else {
+      tip = `💡 Reste concentré sur l'exécution. La progression vient de la qualité, pas seulement des kilos.`;
+    }
+  }
+
+  // CAS 6 — Semaine parfaite
+  else if (done === SESS.length) {
+    urgence = '🏆';
+    msg = `SEMAINE ${w} PARFAITE ! Les ${SESS.length} séances sont complétées. C'est exactement ce qui construit un physique.`;
+    tip = w < WEEKS
+      ? `💡 Semaine ${w + 1} commence le ${formatDate(getSessionDate(w + 1, 0))}. Profite bien du weekend pour récupérer.`
+      : `💡 Programme de 4 mois terminé ! Tu es dans le top 1% des gens qui vont jusqu'au bout. 🎉`;
+  }
+
+  // Message humeur
+  let humMsg = '';
+  if (hum === 'super') humMsg = `🔥 Tu es en feu aujourd'hui — exploite cette énergie !`;
+  else if (hum === 'fatigue') humMsg = `😓 Fatigué ? Commence quand même — les meilleures séances arrivent souvent quand on ne veut pas y aller.`;
+  else if (hum === 'nope') humMsg = `😴 Pas motivé ? Normal. La motivation suit l'action, pas l'inverse. Lance-toi.`;
+
   // Conseils par phase
-  const phAdvices={
-    s1s4:['Priorité aux sensations, pas aux charges lourdes','Chaque séance renforce ta base musculaire','Le corps se réadapte — sois patient'],
-    s5s8:['Augmente progressivement +2.5kg quand les séries deviennent faciles','La régularité prime sur l\'intensité','Commence à pousser un peu plus fort'],
-    s9s16:['Les charges lourdes demandent une exécution parfaite','Mange suffisamment — la masse se construit à table aussi','Récupération = aussi important que l\'entraînement'],
+  const phAdvices = {
+    s1s4: [
+      '🎯 Priorité aux sensations, pas aux charges lourdes',
+      '📈 Le corps se réadapte — 2 semaines avant de sentir la différence',
+      '💤 Le sommeil construit autant que les séances'
+    ],
+    s5s8: [
+      '⚖️ +2.5kg dès que les 4 séries deviennent faciles',
+      '🍽️ Mange suffisamment — sans surplus calorique, pas de masse',
+      '📊 Note tes charges à chaque séance sans exception'
+    ],
+    s9s16: [
+      '🏋️ Les charges lourdes demandent une exécution parfaite',
+      '🧠 La tête lâche avant les muscles — reste focus',
+      '🔁 Récupération = aussi important que l\'entraînement'
+    ],
   };
 
-  document.getElementById('coachMsg').textContent=msg;
-  document.getElementById('coachTip').textContent=tip;
-  const ratBox=document.getElementById('rattrapageBox');
-  if(ratBox){ratBox.style.display=showRat?'block':'none';document.getElementById('rattrapageContent').innerHTML=ratContent;}
-  const adv=document.getElementById('phaseAdvice');
-  if(adv){adv.innerHTML=phAdvices[ph.k].map(a=>`<div style="padding:8px 0;border-bottom:1px solid rgba(75,75,249,0.1);font-size:0.8rem;color:rgba(255,255,255,0.7);">→ ${a}</div>`).join('');}
+  // Injecte dans le DOM
+  document.getElementById('coachMsg').innerHTML =
+    `<span style="font-size:1.2rem;">${urgence}</span> ${msg}`;
+
+  document.getElementById('coachTip').innerHTML =
+    `${tip}${humMsg ? `<br><br>${humMsg}` : ''}`;
+
+  const ratBox = document.getElementById('rattrapageBox');
+  if (ratBox) {
+    ratBox.style.display = showRat ? 'block' : 'none';
+    document.getElementById('rattrapageContent').innerHTML = ratContent;
+  }
+
+  const adv = document.getElementById('phaseAdvice');
+  if (adv) {
+    adv.innerHTML = phAdvices[ph.k].map(a =>
+      `<div style="padding:9px 0;border-bottom:1px solid rgba(75,75,249,0.1);font-size:0.8rem;color:rgba(255,255,255,0.75);">${a}</div>`
+    ).join('');
+  }
 }
 
 // ============================================================
