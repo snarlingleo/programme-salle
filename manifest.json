@@ -1,0 +1,21 @@
+{
+  "name": "Training 4M",
+  "short_name": "Training 4M",
+  "description": "Programme musculation 4 mois – discipline et progression",
+  "start_url": "/programme-salle/",
+  "display": "standalone",
+  "background_color": "#09092d",
+  "theme_color": "#4b4bf9",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
