@@ -1570,6 +1570,55 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
+
+<!-- ===============================
+     NOTIFICATIONS TRAINING 4M
+=============================== -->
+<script>
+function enableNotifications() {
+  if (!("Notification" in window)) {
+    alert("Notifications non supportées");
+    return;
+  }
+
+  Notification.requestPermission().then(permission => {
+    if (permission === "granted") {
+      localStorage.setItem("notifEnabled", "yes");
+      alert("✅ Notifications activées !");
+      scheduleTrainingNotif();
+    } else {
+      alert("❌ Notifications refusées");
+    }
+  });
+}
+
+function scheduleTrainingNotif() {
+  if (Notification.permission !== "granted") return;
+
+  const hour = 4;
+  const minute = 20;
+  const trainingDays = [2, 3, 4, 5];
+
+  setInterval(() => {
+    const now = new Date();
+    if (
+      trainingDays.includes(now.getDay()) &&
+      now.getHours() === hour &&
+      now.getMinutes() === minute
+    ) {
+      new Notification("🔥 Training 4M", {
+        body: "C’est l’heure de ta séance. Discipline > motivation 💪",
+        icon: "icon-192.png"
+      });
+    }
+  }, 60000);
+}
+
+// Si déjà autorisé, relance au chargement
+if (localStorage.getItem("notifEnabled") === "yes") {
+  scheduleTrainingNotif();
+}
+</script>
 <script>
 // ===============================
 // NOTIFICATIONS TRAINING 4M
