@@ -1561,5 +1561,14 @@ document.addEventListener('DOMContentLoaded',()=>{
   ['chgSel','mensSel','jSel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=CW;});
 });
 </script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .then(reg => console.log("✅ Service Worker actif", reg))
+      .catch(err => console.error("❌ SW error", err));
+  });
+}
+</script>
 </body>
 </html>
