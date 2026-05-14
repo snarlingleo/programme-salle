@@ -1197,6 +1197,7 @@ const suggTag = smart.tag
       <td><textarea class="ta" rows="1" placeholder="Notes..." onchange="sv('${nk}',this.value)">${sn}</textarea></td>`;
     tbody.appendChild(tr);
   }));
+  analyseCharges(w);
 }
 function analyseCharges(w) {
   let hausses = 0, baisses = 0, stagnations = 0, total = 0;
@@ -1235,7 +1236,6 @@ function analyseCharges(w) {
     msg.innerHTML = `📊 Analyse : <strong>${hausses}</strong> ↑ · <strong>${stagnations}</strong> = · <strong>${baisses}</strong> ↓`;
     tip.textContent = `💡 Progression en cours. Les indicateurs verts indiquent les exercices à faire progresser.`;
   }
-  analyseCharges(w);
 }
 function chgWk(d){const s=document.getElementById('chgSel');const nw=Math.max(1,Math.min(WEEKS,+s.value+d));s.value=nw;buildCh(nw);}
 function chkPR(inp,sk,ei){const v=parseFloat(inp.value);const pr=getPR(sk,ei);if(v>pr&&pr>0){inp.style.borderColor='var(--l)';inp.title='🏆 Nouveau record !';}}
