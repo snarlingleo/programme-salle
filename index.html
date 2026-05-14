@@ -241,6 +241,18 @@ tr.trow td{background:rgba(75,75,249,0.18);}
 .rec ul li{padding:3px 0;font-size:0.78rem;color:rgba(255,255,255,0.72);}
 .rec ul li::before{content:"🥄 ";}
 
+/* RATTRAPAGE INTELLIGENT */
+.rat-card{background:rgba(255,141,150,0.07);border:1px solid var(--c);border-radius:14px;padding:13px;margin-bottom:10px;}
+.rat-card h4{color:var(--c);font-size:0.85rem;margin-bottom:8px;}
+.rat-option{background:rgba(75,75,249,0.1);border:1px solid rgba(75,75,249,0.25);border-radius:10px;padding:10px;margin-bottom:8px;}
+.rat-option h5{color:var(--l);font-size:0.8rem;margin-bottom:5px;}
+.rat-option ul{list-style:none;padding:0;}
+.rat-option ul li{font-size:0.75rem;color:rgba(255,255,255,0.7);padding:2px 0;}
+.rat-option ul li::before{content:"→ ";}
+.rat-btn{background:var(--c);color:var(--m);border:none;padding:7px 14px;border-radius:20px;font-size:0.75rem;font-weight:700;cursor:pointer;margin-top:7px;transition:all 0.2s;}
+.rat-btn:hover{opacity:0.85;}
+.rat-empty{text-align:center;padding:20px;color:rgba(255,255,255,0.35);font-size:0.82rem;}
+
 /* RECUPERATION */
 .rstep{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(75,75,249,0.1);}
 .rstep-num{background:var(--i);color:var(--w);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;flex-shrink:0;}
@@ -621,9 +633,12 @@ body.light .winfo{background:#fff;}
     <div class="coach-msg" id="coachMsg">Chargement...</div>
     <div class="coach-tip" id="coachTip"></div>
   </div>
-  <div class="rtbox" id="rattrapageBox" style="display:none;">
-    <h3>🔁 Séance de rattrapage suggérée</h3>
-    <div id="rattrapageContent" style="font-size:0.82rem;color:rgba(255,255,255,0.7);line-height:1.8;margin-top:8px;"></div>
+  <div class="card" style="margin-top:12px;">
+    <h2>🔁 Plan de rattrapage intelligent</h2>
+    <p style="font-size:0.73rem;color:rgba(255,255,255,0.4);margin-bottom:11px;">
+      Généré automatiquement selon tes séances manquées
+    </p>
+    <div id="rattrapageBox"></div>
   </div>
   <div class="card">
     <h2>📋 Conseils selon ta phase</h2>
@@ -1076,7 +1091,7 @@ function loadWeek(w){
     }
     tbody.appendChild(tr);
   });
-  updateStats();updateTrophies();loadCoach(w);
+  updateStats();updateTrophies();loadCoach(w);buildRattrapage(w);
 }
 
 function chgW(d){loadWeek(Math.max(1,Math.min(WEEKS,CW+d)));document.getElementById('chgSel').value=CW;buildCh(CW);}
@@ -1455,8 +1470,115 @@ function loadCoach(w) {
     if (st === 'done') done++;
     else if (st === 'skip') skip++;
     else todo++;
+    });
+  buildRattrapage(w);
+}
+// ============================================================
+// RATTRAPAGE INTELLIGENT
+// ============================================================
+function buildRattrapage(w) {
+  const box = document.getElementById('rattrapageBox');
+  if (!box) return;
+
+  const ph = getPhase(w);
+  const fat = ld(`fat_w${w}`, 0);
+
+  // Trouve les séances sautées
+  const skipped = SESS.filter(s => ld(`st_w${w}_${s.key}`) === 'skip');
+  const todo = SESS.filter(s => ld(`st_w${w}_${s.key}`, 'todo') === 'todo');
+
+  if (skipped.length === 0) {
+    box.innerHTML = `<div class="rat-empty">
+      ✅ Aucune séance sautée cette semaine.<br>
+      <span style="font-size:0.72rem;">Continue comme ça !</span>
+    </div>`;
+    return;
+  }
+
+  let html = '';
+
+  skipped.forEach(s => {
+    const exosPrincipaux = s.exos.slice(0, 2);
+    const exosSecondaires = s.exos.slice(2);
+
+    // Option 1 : Séance express 20 min
+    const express = exosPrincipaux.map(ex =>
+      `<li>${ex.n} · 3×${ex.v[ph.k].split('×')[1]} · ${getSugg(ex.b, w)}</li>`
+    ).join('');
+
+    // Option 2 : Séance complète réduite
+    const complet = s.exos.map(ex =>
+      `<li>${ex.n} · ${ex.v[ph.k]} · ${getSugg(ex.b, w)}</li>`
+    ).join('');
+
+    // Option 3 : Fusion si 2 séances sautées
+    let fusionHtml = '';
+    if (skipped.length >= 2 && s === skipped[0]) {
+      const s2 = skipped[1];
+      const fusionExos = [
+        ...s.exos.slice(0, 2),
+        ...s2.exos.slice(0, 2)
+      ];
+      const fusionRows = fusionExos.map(ex =>
+        `<li>${ex.n} · 3×${ex.v[ph.k].split('×')[1]} · ${getSugg(ex.b, w)}</li>`
+      ).join('');
+      fusionHtml = `
+        <div class="rat-option" style="border-color:var(--lv);">
+          <h5>⚡ Option 3 — Fusion ${s.label.split(' ')[0]} + ${s2.label.split(' ')[0]} (35 min)</h5>
+          <ul>${fusionRows}</ul>
+          <button class="rat-btn" style="background:var(--lv);color:var(--m);"
+            onclick="markRattrapage('${s.key}','${s2.key}',${w})">
+            ✅ Marquer les 2 comme faites
+          </button>
+        </div>`;
+    }
+
+    // Conseil selon fatigue
+    const fatConseil = fat >= 3
+      ? `⚠️ Fatigue élevée → Option 1 recommandée`
+      : fat === 0
+      ? `✅ Forme OK → Option 2 ou 3 recommandée`
+      : `💡 Choisis selon ton énergie du jour`;
+
+    html += `
+      <div class="rat-card">
+        <h4>🔁 Rattrapage — ${s.label}</h4>
+        <p style="font-size:0.72rem;color:rgba(255,255,255,0.4);margin-bottom:9px;">${fatConseil}</p>
+
+        <div class="rat-option">
+          <h5>⚡ Option 1 — Express 20 min</h5>
+          <ul>${express}</ul>
+          <button class="rat-btn" onclick="markRattrapage('${s.key}','',${w})">
+            ✅ Marquer comme faite
+          </button>
+        </div>
+
+        <div class="rat-option">
+          <h5>💪 Option 2 — Séance complète réduite (30 min)</h5>
+          <ul>${complet}</ul>
+          <button class="rat-btn" onclick="markRattrapage('${s.key}','',${w})">
+            ✅ Marquer comme faite
+          </button>
+        </div>
+
+        ${fusionHtml}
+      </div>`;
   });
 
+  box.innerHTML = html;
+}
+
+function markRattrapage(key1, key2, w) {
+  if (key1) sv(`st_w${w}_${key1}`, 'done');
+  if (key2) sv(`st_w${w}_${key2}`, 'done');
+  updateStats();
+  updateTrophies();
+  updateScore(w);
+  updateDefi(w);
+  loadCoach(w);
+  buildRattrapage(w);
+  alert('✅ Séance(s) de rattrapage validée(s) ! Bien joué 💪');
+}
   // Analyse charges (semaine actuelle vs semaine précédente)
   let chargeUp = 0, chargeDown = 0, chargeCount = 0;
   if (w > 1) {
