@@ -787,6 +787,76 @@ body.theme-fire{--i:#ff2200;--l:#ffaa00;--c:#ff6600;--lv:#ffcc88;--mn:#ffff00;}
     <button id="notifBtn" style="background:var(--i);color:white;border:none;padding:14px 20px;border-radius:14px;font-size:0.88rem;font-weight:700;width:100%;cursor:pointer;" onclick="enableNotifications()">🔔 Activer les notifications</button>
   </div>
   <div class="card">
+  <h2>🎵 Apple Music – Mes Playlists</h2>
+  <p style="font-size:0.72rem;color:rgba(255,255,255,0.4);margin-bottom:12px;">
+    Colle tes liens Apple Music → ils sont sauvegardés automatiquement 🎵
+  </p>
+
+  <!-- PLAYLIST 1 -->
+  <div style="margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <span class="badge bg">Reprise</span>
+      <span style="font-size:0.72rem;color:rgba(255,255,255,0.45);">S1→S4 · Motivant doux</span>
+    </div>
+    <div style="display:flex;gap:7px;align-items:center;">
+      <input class="inp" id="pl1" type="url" placeholder="Colle ton lien Apple Music..."
+        style="width:100%;font-size:0.7rem;"
+        value=""
+        onchange="savePl(1,this.value)">
+      <button onclick="openPl(1)" style="background:var(--mn);color:var(--m);border:none;padding:7px 12px;border-radius:10px;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">▶ Go</button>
+    </div>
+  </div>
+
+  <!-- PLAYLIST 2 -->
+  <div style="margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <span class="badge by">Progression</span>
+      <span style="font-size:0.72rem;color:rgba(255,255,255,0.45);">S5→S8 · Énergie forte</span>
+    </div>
+    <div style="display:flex;gap:7px;align-items:center;">
+      <input class="inp" id="pl2" type="url" placeholder="Colle ton lien Apple Music..."
+        style="width:100%;font-size:0.7rem;"
+        value=""
+        onchange="savePl(2,this.value)">
+      <button onclick="openPl(2)" style="background:var(--l);color:var(--m);border:none;padding:7px 12px;border-radius:10px;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">▶ Go</button>
+    </div>
+  </div>
+
+  <!-- PLAYLIST 3 -->
+  <div style="margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <span class="badge br">Masse</span>
+      <span style="font-size:0.72rem;color:rgba(255,255,255,0.45);">S9→S16 · Intensité max</span>
+    </div>
+    <div style="display:flex;gap:7px;align-items:center;">
+      <input class="inp" id="pl3" type="url" placeholder="Colle ton lien Apple Music..."
+        style="width:100%;font-size:0.7rem;"
+        value=""
+        onchange="savePl(3,this.value)">
+      <button onclick="openPl(3)" style="background:var(--c);color:var(--m);border:none;padding:7px 12px;border-radius:10px;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">▶ Go</button>
+    </div>
+  </div>
+
+  <!-- PLAYLIST 4 BONUS -->
+  <div style="margin-bottom:4px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <span class="badge bl">Bonus</span>
+      <span style="font-size:0.72rem;color:rgba(255,255,255,0.45);">Ma playlist perso favorite</span>
+    </div>
+    <div style="display:flex;gap:7px;align-items:center;">
+      <input class="inp" id="pl4" type="url" placeholder="Colle ton lien Apple Music..."
+        style="width:100%;font-size:0.7rem;"
+        value=""
+        onchange="savePl(4,this.value)">
+      <button onclick="openPl(4)" style="background:var(--lv);color:var(--m);border:none;padding:7px 12px;border-radius:10px;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">▶ Go</button>
+    </div>
+  </div>
+
+  <p style="font-size:0.62rem;color:rgba(255,255,255,0.2);margin-top:10px;">
+    💡 Sur iPhone : Apple Music → Playlist → ··· → Partager → Copier le lien
+  </p>
+</div>
+  <div class="card">
     <h2>📅 Export Calendrier</h2>
     <button class="ics-btn" onclick="exportICS()">📅 Télécharger fichier .ICS</button>
   </div>
@@ -1892,6 +1962,30 @@ function exportICS(){
 }
 
 // ============================================================
+// PLAYLISTS APPLE MUSIC
+// ============================================================
+function savePl(n, url) {
+  sv(`playlist_${n}`, url);
+  if (url) showToast(`Playlist ${n} sauvegardée ✅`, 'success', 2000);
+}
+
+function openPl(n) {
+  const url = ld(`playlist_${n}`, '');
+  if (!url) {
+    showToast('Colle d\'abord ton lien Apple Music 🎵', 'warning');
+    return;
+  }
+  window.open(url, '_blank');
+}
+
+function loadPlaylists() {
+  [1, 2, 3, 4].forEach(n => {
+    const el = document.getElementById(`pl${n}`);
+    if (el) el.value = ld(`playlist_${n}`, '');
+  });
+}
+
+// ============================================================
 // COACH ADAPTATIF v2
 // ============================================================
 function loadCoach(w){
@@ -2305,7 +2399,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   buildSels();buildMensGrid();buildPhotoGrid();buildObjList();buildRecup();
   loadWeek(CW);buildCh(CW);loadSes('dos');
   loadChecks();loadJ(CW);loadMens(CW);
-  loadH();updateTrophies();updatePhaseBars(CW);calcCal();
+  loadH();updateTrophies();updatePhaseBars(CW);calcCal();loadPlaylists();
   updateNotifUI();
 
   ['chgSel','mensSel','jSel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=CW;});
