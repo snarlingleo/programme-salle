@@ -368,6 +368,10 @@ body.light .winfo{background:#fff;}
 <!-- ===== PLANNING ===== -->
 <div id="planning" class="tc active">
   <div class="motiv"><div class="mt" id="motivText">...</div><div class="mw" id="motivWeek"></div></div>
+  <div class="coach-box" id="chargeCoachBox" style="margin-bottom:12px;">
+  <div class="coach-msg" id="chargeCoachMsg">Analyse des charges...</div>
+  <div class="coach-tip" id="chargeCoachTip"></div>
+</div>
   <div class="wnav">
     <button onclick="chgW(-1)">◀</button>
     <select class="sel" id="wSel" onchange="loadWeek(+this.value)" style="flex:1;max-width:200px;"></select>
@@ -917,7 +921,79 @@ function todayFr(){return DAYS_FR[new Date().getDay()];}
 function todayDate(){const d=new Date();d.setHours(0,0,0,0);return d;}
 function getPhase(w){return w<=4?{n:'Reprise',k:'s1s4',c:'bg'}:w<=8?{n:'Progression',k:'s5s8',c:'by'}:{n:'Masse',k:'s9s16',c:'br'};}
 function getReps(w){return w<=4?'12–15':w<=8?'10–12':'8–10';}
-function getSugg(b,w){if(!b)return'—';const ph=getPhase(w);let m=ph.k==='s1s4'?0.55+(w-1)*0.05:ph.k==='s5s8'?0.75+(w-5)*0.05:0.90+(w-9)*0.03;return'~'+Math.round(BW*b*m/2.5)*2.5+'kg';}
+function getSugg(b, w) {
+  if (!b) return '—';
+  const ph = getPhase(w);
+  let m = ph.k === 's1s4' ? 0.55 + (w - 1) * 0.05
+        : ph.k === 's5s8' ? 0.75 + (w - 5) * 0.05
+        : 0.90 + (w - 9) * 0.03;
+  return '~' + Math.round(BW * b * m / 2.5) * 2.5 + 'kg';
+}
+
+function getSmartSugg(s, ei, w) {
+  const ex = s.exos[ei];
+  if (!ex.b) return { val: '—', tag: '', color: '' };
+
+  // Charge de base suggérée
+  const base = parseFloat(getSugg(ex.b, w).replace('~', '').replace('kg', ''));
+
+  // Analyse ressentis sur 2 dernières semaines
+  let ressentis = [];
+  for (let i = Math.max(1, w - 2); i < w; i++) {
+    const r = ld(`rs_w${i}_${s.key}_${ei}`, null);
+    if (r !== null) ressentis.push(parseInt(r));
+  }
+
+  // Charge réelle semaine précédente
+  const prevCharge = parseFloat(ld(`ch_w${w - 1}_${s.key}_${ei}`, '') || 0);
+  const curCharge = parseFloat(ld(`ch_w${w}_${s.key}_${ei}`, '') || 0);
+
+  // Fatigue globale
+  const fat = ld(`fat_w${w}`, 0);
+
+  let adj = 0, tag = '', color = '';
+
+  // Règle fatigue élevée → réduction
+  if (fat >= 4) {
+    adj = -Math.round(base * 0.10 / 2.5) * 2.5;
+    tag = '🚨 -10% fatigue';
+    color = 'var(--c)';
+  }
+  // Règle ressenti facile 2x → augmentation
+  else if (ressentis.length >= 1 && ressentis.every(r => r === 0)) {
+    adj = 2.5;
+    tag = '📈 +2.5kg suggéré';
+    color = 'var(--mn)';
+  }
+  // Règle trop lourd → réduction
+  else if (ressentis.some(r => r === 3)) {
+    adj = -2.5;
+    tag = '⬇️ -2.5kg conseillé';
+    color = 'var(--c)';
+  }
+  // Règle stagnation (même charge 3 semaines)
+  else if (w >= 3) {
+    const w1 = ld(`ch_w${w - 1}_${s.key}_${ei}`, '');
+    const w2 = ld(`ch_w${w - 2}_${s.key}_${ei}`, '');
+    const w3 = ld(`ch_w${w - 3}_${s.key}_${ei}`, '');
+    if (w1 && w2 && w3 && w1 === w2 && w2 === w3) {
+      adj = 2.5;
+      tag = '⚡ Stagnation → +2.5kg';
+      color = 'var(--l)';
+    }
+  }
+  // Progression normale
+  else if (prevCharge > 0 && curCharge >= prevCharge) {
+    tag = '✅ En progression';
+    color = 'var(--mn)';
+  }
+
+  const finalVal = prevCharge > 0
+    ? '~' + (prevCharge + adj) + 'kg'
+    : getSugg(ex.b, w);
+
+  return { val: finalVal, tag, color };
+}
 function getPR(sk,ei){let max=0;for(let w=1;w<=WEEKS;w++){const v=ld(`ch_w${w}_${sk}_${ei}`,'');if(v&&parseFloat(v)>max)max=parseFloat(v);}return max;}
 
 // ============================================================
@@ -1099,13 +1175,17 @@ function buildCh(w){
   SESS.forEach(s=>s.exos.forEach((ex,ei)=>{
     const ck=`ch_w${w}_${s.key}_${ei}`,rk=`rs_w${w}_${s.key}_${ei}`,nk=`nt_w${w}_${s.key}_${ei}`;
     const cv=ld(ck,''),sr=ld(rk,'0'),sn=ld(nk,'');
-    const sugg=getSugg(ex.b,w);
+    const smart = getSmartSugg(s, ei, w);
+const sugg = smart.val;
+const suggTag = smart.tag
+  ? `<br><span style="font-size:0.6rem;color:${smart.color};font-weight:700;">${smart.tag}</span>`
+  : '';
     const pr=getPR(s.key,ei);
     const isPR=cv&&parseFloat(cv)>=pr&&pr>0?'🏆':'';
     const tr=document.createElement('tr');
     tr.innerHTML=`<td><span class="badge ${s.badge}">${s.label}</span></td>
       <td style="font-size:0.73rem;">${ex.n}</td>
-      <td><span class="badge bg" style="font-size:0.62rem;">${sugg}</span></td>
+      <td><span class="badge bg" style="font-size:0.62rem;">${sugg}</span>${suggTag}</td>
       <td><input class="inp" type="number" min="0" placeholder="kg" value="${cv}"
         onchange="sv('${ck}',this.value);chkPR(this,'${s.key}',${ei})"> ${isPR}</td>
       <td><select class="sel" onchange="sv('${rk}',this.value)">
@@ -1117,6 +1197,45 @@ function buildCh(w){
       <td><textarea class="ta" rows="1" placeholder="Notes..." onchange="sv('${nk}',this.value)">${sn}</textarea></td>`;
     tbody.appendChild(tr);
   }));
+}
+function analyseCharges(w) {
+  let hausses = 0, baisses = 0, stagnations = 0, total = 0;
+  SESS.forEach(s => s.exos.forEach((_, ei) => {
+    const cur = parseFloat(ld(`ch_w${w}_${s.key}_${ei}`, '') || 0);
+    const prev = parseFloat(ld(`ch_w${w - 1}_${s.key}_${ei}`, '') || 0);
+    if (cur > 0 && prev > 0) {
+      total++;
+      if (cur > prev) hausses++;
+      else if (cur < prev) baisses++;
+      else stagnations++;
+    }
+  }));
+
+  const box = document.getElementById('chargeCoachBox');
+  const msg = document.getElementById('chargeCoachMsg');
+  const tip = document.getElementById('chargeCoachTip');
+  if (!msg || !tip) return;
+
+  if (total === 0) {
+    msg.textContent = '📝 Commence à entrer tes charges pour voir l\'analyse automatique.';
+    tip.textContent = '';
+    return;
+  }
+
+  if (hausses >= total * 0.6) {
+    msg.innerHTML = `📈 <strong>${hausses}/${total}</strong> charges en hausse cette semaine. Excellente progression !`;
+    tip.textContent = `💡 Continue sur cette lancée. Ton corps s'adapte parfaitement.`;
+  } else if (baisses >= total * 0.5) {
+    msg.innerHTML = `⬇️ <strong>${baisses}/${total}</strong> charges en baisse. Le corps envoie un signal.`;
+    tip.textContent = `💡 Vérifie : sommeil suffisant ? Nutrition correcte ? Récupération entre les séances ?`;
+  } else if (stagnations >= total * 0.6) {
+    msg.innerHTML = `⚡ <strong>${stagnations}/${total}</strong> charges stagnantes. Il est temps de progresser !`;
+    tip.textContent = `💡 Tente +2.5kg sur au moins 2 exercices principaux cette semaine.`;
+  } else {
+    msg.innerHTML = `📊 Analyse : <strong>${hausses}</strong> ↑ · <strong>${stagnations}</strong> = · <strong>${baisses}</strong> ↓`;
+    tip.textContent = `💡 Progression en cours. Les indicateurs verts indiquent les exercices à faire progresser.`;
+  }
+  analyseCharges(w);
 }
 function chgWk(d){const s=document.getElementById('chgSel');const nw=Math.max(1,Math.min(WEEKS,+s.value+d));s.value=nw;buildCh(nw);}
 function chkPR(inp,sk,ei){const v=parseFloat(inp.value);const pr=getPR(sk,ei);if(v>pr&&pr>0){inp.style.borderColor='var(--l)';inp.title='🏆 Nouveau record !';}}
